@@ -1,0 +1,118 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sr-corrnet-ss"
+version = "0.1.0"
+description = "Speech Separation — public release of the SS variant of SR-CorrNet"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Ui-Hyeop Shin", email = "shinuh@mpwav.com"}, {name = "Hyung-Min Park"}]
+keywords = ["speech-separation", "time-frequency", "deep-filter", "encoder-decoder", "pytorch"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy",
+    "loguru",
+    "rotary-embedding-torch",
+    "pyyaml",
+    "soundfile",
+    "librosa",
+    "tqdm",
+    "scipy",
+]
+
+[project.urls]
+repository = "https://github.com/dmlguq456/SR_CorrNet_SS"
+homepage = "https://github.com/dmlguq456/SR_CorrNet_SS"
+
+# gpuRIR is not on PyPI; install manually for RIR generation:
+#   pip install git+https://github.com/DavidDiazGuerra/gpuRIR
+# gpuRIR is only used in data/rir_gen/ scripts, not in the core sr_corrnet package.
+[project.optional-dependencies]
+cpu = ["torch>=2.6", "torchaudio>=2.6"]
+cu118 = ["torch>=2.6", "torchaudio>=2.6"]
+cu124 = ["torch>=2.6", "torchaudio>=2.6"]
+cu126 = ["torch>=2.6", "torchaudio>=2.6"]
+cu128 = ["torch>=2.6", "torchaudio>=2.6"]
+cu130 = ["torch>=2.6", "torchaudio>=2.6"]
+hub = ["huggingface_hub>=0.20"]
+# IMPORTANT: Always combine train with an accelerator extra (cpu/cu118/cu124/cu126/cu128/cu130).
+# uv sync --extra train alone may resolve CPU-only torch from PyPI via transitive deps.
+# Correct usage: uv sync --extra cu126 --extra train
+train = [
+    "tensorboardX", "wandb", "torchinfo", "ptflops", "thop",
+    "mir_eval", "matplotlib",
+]
+full = ["sr-corrnet-ss[train,hub,cu126]"]  # CUDA only; for CPU use: --extra cpu --extra train --extra hub
+
+[tool.setuptools.packages.find]
+include = ["sr_corrnet*"]
+
+[tool.setuptools.package-data]
+"sr_corrnet.models.SR_CorrNet_SS" = ["configs/*.yaml"]
+
+# After modifying dependencies, run: uv lock
+# Only packages whose WHEELS live on a non-PyPI index need [tool.uv.sources] entries.
+# Packages that merely depend on torch (e.g. rotary-embedding-torch) do NOT need
+# entries here — uv routes their transitive torch dependency via the rules below.
+
+[tool.uv]
+conflicts = [
+    [{ extra = "cpu" }, { extra = "cu118" }, { extra = "cu124" }, { extra = "cu126" }, { extra = "cu128" }, { extra = "cu130" }],
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu118", extra = "cu118" },
+    { index = "pytorch-cu124", extra = "cu124" },
+    { index = "pytorch-cu126", extra = "cu126" },
+    { index = "pytorch-cu128", extra = "cu128" },
+    { index = "pytorch-cu130", extra = "cu130" },
+]
+torchaudio = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu118", extra = "cu118" },
+    { index = "pytorch-cu124", extra = "cu124" },
+    { index = "pytorch-cu126", extra = "cu126" },
+    { index = "pytorch-cu128", extra = "cu128" },
+    { index = "pytorch-cu130", extra = "cu130" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true

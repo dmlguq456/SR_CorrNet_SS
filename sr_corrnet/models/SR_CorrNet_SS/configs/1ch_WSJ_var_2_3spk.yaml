@@ -1,0 +1,159 @@
+project: "[Project] SR_CorrNet_SS" ### Dont't change
+notes: "Base Model for WSJ-{2,3}MIX with Attractor-based Split" ### Insert schanges(plz write details !!!)
+# ------------------------------------------------------------------------------------------------------------------------------ #
+config:
+    # ⚡⚡⚡⚡⚡⚡⚡⚡⚡ key variables ⚡⚡⚡⚡⚡⚡⚡⚡⚡ #
+    test_unknown_n_spks: true
+    max_n_spks: &var_model_n_spks 3
+    is_var_spks: &var_is_var_spks true
+
+    num_mics: &var_model_num_mics 1
+    taps_freq: &var_taps_freq [1,1] # [Future, Past]
+    taps_frame: &var_taps [1,1] # [Future, Past]
+
+    N_Enc: &var_num_enc 2 # separation encoder
+    N_Dec: &var_num_dec 4 # reconstruction decoder
+
+    d_model: &var_model_channels 128
+    d_hidden: &var_hidden_channels 384
+    d_hidden_spk: &var_hidden_channels_spk 512
+    n_head: &var_n_head 4
+    kernel_size: &var_kernel_size 3
+    # ------------------------------------------------------------ #
+    eval_SDRi: false
+    partitions:
+        train: ["train", "valid"]
+        test: ["test"]
+    dataset:
+        max_n_spks: *var_model_n_spks
+        synthesis_config:
+            max_len : 32000
+            sampling_rate: 8000
+        ref_ch: &var_ref_ch 0
+        dynamic_mixing: false
+        speed_list_for_DM: [0.95, 0.96, 0.97, 0.98, 0.99, 
+                            1.00, 1.00, 1.00, 1.00, 1.00, 
+                            1.01, 1.02, 1.03, 1.04, 1.05]
+        scp_dir: "data/scp/scp_wsj0_mix_8k"
+        subset_conf:
+            train:
+                subset: true
+                num_per_epoch: 20000 # number of data samples for one epoch
+            valid:
+                subset: true
+                num_per_epoch: 4000 # number of data samples for one epoch
+        subset_dir: ['2mix','3mix']
+        2mix:
+            train:
+                mixture: "tr_mix.scp"
+                spk: ["tr_s1.scp", "tr_s2.scp"]
+            valid:
+                mixture: "cv_mix.scp"
+                spk: ["cv_s1.scp", "cv_s2.scp"]
+            test:
+                mixture: "tt_mix.scp"
+                spk: ["tt_s1.scp", "tt_s2.scp"]
+        3mix:
+            train:
+                mixture: "tr_mix.scp"
+                spk: ["tr_s1.scp", "tr_s2.scp", "tr_s3.scp"]
+            valid:
+                mixture: "cv_mix.scp"
+                spk: ["cv_s1.scp", "cv_s2.scp", "cv_s3.scp"]
+            test:
+                mixture: "tt_mix.scp"
+                spk: ["tt_s1.scp", "tt_s2.scp", "tt_s3.scp"]
+    # ------------------------------------------------------------ #
+    dataloader:
+        pin_memory: true
+        batch_size: 1
+        drop_last: false
+        num_workers: 12
+    # ------------------------------------------------------------ #
+    stft:
+        frame_length: 128
+        frame_shift: 64
+    # ------------------------------------------------------------ #
+    model:
+        ref_ch: *var_ref_ch
+        taps_freq: *var_taps_freq
+        taps_frame: *var_taps
+        d_model: *var_model_channels
+        input_embedding:
+            d_model: *var_model_channels
+            kernel_sizes: [3, 3] # first layer, second layer
+            num_mics: *var_model_num_mics
+            taps_freq: *var_taps_freq
+            taps_frame: *var_taps
+        RoPE:
+            d_model: *var_model_channels
+            n_head: *var_n_head
+        multi_path_block:
+            channel_module:
+                d_model: *var_model_channels
+                d_hidden: *var_hidden_channels
+                n_head: *var_n_head
+                kernel_size: *var_kernel_size
+                dropout_rate: 0.00
+            spectral_module:
+                d_model: *var_model_channels
+                d_hidden: *var_hidden_channels
+                n_head: *var_n_head
+                kernel_size: *var_kernel_size
+                dropout_rate: 0.00
+        is_var_spks: *var_is_var_spks
+        spk_split:
+            varying:
+                d_model: *var_model_channels
+                d_freq: &num_frequency_bin 65 # win/2+1
+                n_head: *var_n_head
+                max_n_spks: *var_model_n_spks
+                dropout_rate: 0.00
+            fixed:
+                d_model: *var_model_channels
+                max_n_spks: *var_model_n_spks
+        cross_spk:
+            d_model: *var_model_channels
+            d_hidden: *var_hidden_channels_spk
+            n_head: *var_n_head
+            dropout_rate: 0.00
+        N_Enc: *var_num_enc
+        N_Dec: *var_num_dec
+        mask_estimator:
+            d_model: *var_model_channels
+            num_mics: *var_model_num_mics
+            taps_freq: *var_taps_freq
+            taps_frame: *var_taps
+            MIMO: &var_mimo_opt false
+        apply_pos_enc: true
+    # ------------------------------------------------------------ #
+    engine:
+        # -------------------------------- #
+        optimizer:
+            name: "AdamW" ### Choose a torch.optim's class(=attribute) e.g. ["Adam", "AdamW", "SGD", ...]
+            AdamW:
+                lr: 5.0e-4
+                weight_decay: 1.0e-2
+            Adam:
+                lr: 1.0e-4
+                weight_decay : 0.0
+        # -------------------------------- #
+        scheduler:
+            name: "StepLR" # ReduceLROnPlateau, 
+            WarmupConstantSchedule:
+                warmup_steps: 3000
+            ReduceLROnPlateau:
+                mode: "min"
+                min_lr: 1.0e-10
+                factor: 0.5
+                patience: 2
+            StepLR:
+                step_size: 1
+                gamma: 0.95
+        # -------------------------------- #
+        check_compute_len: [2, 65, 125]
+        max_epoch: 200
+        clip_norm: 5
+        start_scheduling: 50
+
+
